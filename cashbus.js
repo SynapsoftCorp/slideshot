@@ -2,9 +2,8 @@ function cashbus(hook, debug) { // capture current slide
     var canvas = document.createElement('canvas');
     var canvasWrapper = $$('.canvasWrapper')[0];
     var currentSlideElement = canvasWrapper.parentElement;
-    var slideWidth = parseInt(currentSlideElement.style.width, 10);
-    var slideHeight = parseInt(currentSlideElement.style.height, 10);
-    //TODO: set the canvas width & height
+    canvas.width = parseInt(currentSlideElement.style.width, 10);
+    canvas.height = parseInt(currentSlideElement.style.height, 10);
     var renderQueue = [];
     $$('> div', canvasWrapper).each(function (element) {
         var type;
@@ -34,7 +33,7 @@ function cashbus(hook, debug) { // capture current slide
     function renderNext() {
         if (renderPhase === renderQueue.length) {
             if (hook && hook.complete)
-                hook.complete();
+                hook.complete(canvas);
             return;
         }
         if (hook && hook.progress)
@@ -42,30 +41,40 @@ function cashbus(hook, debug) { // capture current slide
         var renderItem = renderQueue[renderPhase++];
         var renderFunction = cashbus.render[renderItem.type];
         if (renderFunction) {
-            renderFunction(renderItem.element, canvas.getContext('2d'), function () {
+            renderFunction(renderItem.element, canvas, canvas.getContext('2d'), function () {
                 setTimeout(renderNext, 0); // set timeout to clear call stack
             });
         }
-        else if (debug) {
-            throw new Error('we need to implement ' + renderItem.type + ' render function');
+        else {
+            if (debug)
+                throw new Error('we need to implement ' + renderItem.type + ' render function');
+            if (hook && hook.complete)
+                hook.complete(canvas);
         }
     }
     return canvas;
 }
 cashbus.render = {};
-cashbus.render.slideBackground = function (element, context, next) {
-    console.log('render slideBackground');
+cashbus.render.slideBackground = function (element, canvas, context, next) {
+    var fillColor = $Element($$('.viewport', element)[0].children[0]).attr('fill');
+    context.fillStyle = fillColor;
+    context.fillRect(0, 0, canvas.width, canvas.height);
     next();
 };
-cashbus.render.rect = function (element, context, next) {
+cashbus.render.rect = function (element, canvas, context, next) {
     console.log('render rect');
     next();
 };
-cashbus.render.picture = function (element, context, next) {
+cashbus.render.picture = function (element, canvas, context, next) {
     console.log('render picture');
     next();
 };
 cashbus({
-    progress: function (current, total) { console.log(current + ' / ' + total); },
-    complete: function () { console.log('render completed'); }
-}, true);
+    progress: function (current, total) {
+        console.log(current + ' / ' + total);
+    },
+    complete: function (canvas) {
+        console.log('render completed');
+        console.log(canvas.toDataURL());
+    }
+}, false);
