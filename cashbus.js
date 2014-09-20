@@ -2,9 +2,9 @@ function cashbus(hook, debug) { // capture current slide
     var canvas = document.createElement('canvas');
     var context = canvas.getContext('2d');
     var canvasWrapper = $$('.canvasWrapper')[0];
-    var currentSlideElement = canvasWrapper.parentElement;
-    canvas.width = parseInt(currentSlideElement.style.width, 10);
-    canvas.height = parseInt(currentSlideElement.style.height, 10);
+    var slideStyle = getComputedStyle(canvasWrapper.parentElement);
+    canvas.width = parseInt(slideStyle.width, 10);
+    canvas.height = parseInt(slideStyle.height, 10);
     var renderQueue = [];
     $$('> div', canvasWrapper).each(function (element) {
         var type;
@@ -32,13 +32,13 @@ function cashbus(hook, debug) { // capture current slide
     if (renderQueue.length > 0)
         setTimeout(renderNext, 0); // set timeout to clear call stack
     function renderNext() {
+        if (hook && hook.progress)
+            hook.progress(renderPhase, renderQueue.length);
         if (renderPhase === renderQueue.length) {
             if (hook && hook.complete)
                 hook.complete(canvas);
             return;
         }
-        if (hook && hook.progress)
-            hook.progress(renderPhase, renderQueue.length);
         var renderItem = renderQueue[renderPhase++];
         var renderFunction = cashbus.render[renderItem.type];
         if (renderFunction) {
@@ -87,6 +87,9 @@ cashbus.render.rect = function (element, context, next) {
         context.globalAlpha = strokeOpacity;
         context.strokeRect(0, 0, geomInfo.width, geomInfo.height);
     }
+    var style = getComputedStyle($$('.textArea .textBody', element)[0]);
+    context.translate(parseFloat(style.marginLeft), parseFloat(style.marginTop));
+    cashbus.util.renderRichText($$('.textArea .content', element)[0], context, geomInfo.width);
     next();
 };
 cashbus.render.picture = function (element, context, next) {
@@ -130,6 +133,27 @@ cashbus.util.transformContextByGeomInfo = function (context, geomInfo) {
 cashbus.util.transformContextByElement = function (context, element) {
     var geomInfo = cashbus.util.getGeomInfo(element);
     cashbus.util.transformContextByGeomInfo(context, geomInfo);
+};
+cashbus.util.renderRichText = function (richTextDiv, context, width, height) {
+    var verticalOffset = 0;
+    context.textBaseline = 'ideographic';
+    $$('p, li', richTextDiv).each(function (element) {
+        var offset = 0;
+        var style = getComputedStyle(element);
+        verticalOffset += parseFloat(style.lineHeight);
+        $$('span', element).each(function (element) {
+            var style = getComputedStyle(element);
+            var font = [style.fontSize, style.fontFamily];
+            if (style.fontWeight === 'bold') font.unshift('bold');
+            if (style.fontStyle === 'italic') font.unshift('italic');
+            context.font = font.join(' ');
+            var text = element.textContent;
+            var textMetrics = context.measureText(text);
+            context.fillStyle = style.color;
+            context.fillText(text, offset, verticalOffset);
+            offset += textMetrics.width;
+        });
+    });
 };
 cashbus({
     progress: function (current, total) {
