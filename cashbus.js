@@ -1,5 +1,6 @@
 function cashbus(hook, debug) { // capture current slide
     var canvas = document.createElement('canvas');
+    var context = canvas.getContext('2d');
     var canvasWrapper = $$('.canvasWrapper')[0];
     var currentSlideElement = canvasWrapper.parentElement;
     canvas.width = parseInt(currentSlideElement.style.width, 10);
@@ -29,7 +30,7 @@ function cashbus(hook, debug) { // capture current slide
     });
     var renderPhase = 0;
     if (renderQueue.length > 0)
-        setTimeout(renderNext, 0);
+        setTimeout(renderNext, 0); // set timeout to clear call stack
     function renderNext() {
         if (renderPhase === renderQueue.length) {
             if (hook && hook.complete)
@@ -41,33 +42,81 @@ function cashbus(hook, debug) { // capture current slide
         var renderItem = renderQueue[renderPhase++];
         var renderFunction = cashbus.render[renderItem.type];
         if (renderFunction) {
-            renderFunction(renderItem.element, canvas, canvas.getContext('2d'), function () {
-                setTimeout(renderNext, 0); // set timeout to clear call stack
+            context.save();
+            renderFunction(renderItem.element, context, function () {
+                context.restore();
+                setTimeout(renderNext, 0);
             });
         }
         else {
             if (debug)
                 throw new Error('we need to implement ' + renderItem.type + ' render function');
-            if (hook && hook.complete)
-                hook.complete(canvas);
+            setTimeout(renderNext, 0);
         }
     }
     return canvas;
 }
 cashbus.render = {};
-cashbus.render.slideBackground = function (element, canvas, context, next) {
+cashbus.render.slideBackground = function (element, context, next) {
+    var canvas = context.canvas;
     var fillColor = $Element($$('.viewport', element)[0].children[0]).attr('fill');
     context.fillStyle = fillColor;
     context.fillRect(0, 0, canvas.width, canvas.height);
     next();
 };
-cashbus.render.rect = function (element, canvas, context, next) {
-    console.log('render rect');
+cashbus.render.rect = function (element, context, next) {
+    var geomInfo = cashbus.dom.getGeomInfo(element);
+    // transform
+    var halfWidth = geomInfo.width * 0.5;
+    var halfHeight = geomInfo.height * 0.5;
+    context.translate(halfWidth + geomInfo.left, halfHeight + geomInfo.top);
+    context.transform.apply(context, geomInfo.matrix);
+    context.translate(-halfWidth, -halfHeight);
+    // fill & stroke background rect
+    var path = element.querySelector('svg:first-child path');
+    var fillColor = path.getAttribute('fill');
+    var fillOpacity = path.getAttribute('fill-opacity');
+    var strokeColor = path.getAttribute('stroke');
+    var strokeWidth = path.getAttribute('stroke-width');
+    var strokeLineJoin = path.getAttribute('stroke-linejoin');
+    var strokeOpacity = path.getAttribute('stroke-opacity');
+    strokeOpacity = strokeOpacity === null ? 1 : strokeOpacity;
+    if (fillColor && fillColor !== 'none') {
+        context.fillStyle = fillColor;
+        context.globalAlpha = fillOpacity;
+        context.fillRect(0, 0, geomInfo.width, geomInfo.height);
+        console.log(fillColor);
+    }
+    if (strokeColor && strokeColor !== 'none') {
+        context.strokeStyle = strokeColor;
+        context.lineWidth = parseFloat(strokeWidth);
+        context.lineJoin = strokeLineJoin;
+        context.globalAlpha = strokeOpacity;
+        context.strokeRect(0, 0, geomInfo.width, geomInfo.height);
+    }
     next();
 };
-cashbus.render.picture = function (element, canvas, context, next) {
+cashbus.render.picture = function (element, context, next) {
     console.log('render picture');
     next();
+};
+cashbus.dom = {};
+cashbus.dom.getGeomInfo = function (element) {
+    // assume getComputedStyle returns the value in pixel units for top, left, width, height
+    // matrix(m11, m12, m21, m22, dx, dy) for transform
+    var style = getComputedStyle(element);
+    var transform = style.transform;
+    if (!transform || transform === 'none' || !/matrix\(/.test(transform)) return;
+    var matrix = transform.replace(/matrix\(|\)/g, '').split(',').map(function (string) {
+        return parseFloat(string);
+    });
+    return {
+        top: parseFloat(style.top),
+        left: parseFloat(style.left),
+        width: parseFloat(style.width),
+        height: parseFloat(style.height),
+        matrix: matrix
+    };
 };
 cashbus({
     progress: function (current, total) {
