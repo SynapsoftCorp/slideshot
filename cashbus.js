@@ -65,14 +65,8 @@ cashbus.render.slideBackground = function (element, context, next) {
     next();
 };
 cashbus.render.rect = function (element, context, next) {
-    var geomInfo = cashbus.dom.getGeomInfo(element);
-    // transform
-    var halfWidth = geomInfo.width * 0.5;
-    var halfHeight = geomInfo.height * 0.5;
-    context.translate(halfWidth + geomInfo.left, halfHeight + geomInfo.top);
-    context.transform.apply(context, geomInfo.matrix);
-    context.translate(-halfWidth, -halfHeight);
-    // fill & stroke background rect
+    var geomInfo = cashbus.util.getGeomInfo(element);
+    cashbus.util.transformContextByGeomInfo(context, geomInfo);
     var path = element.querySelector('svg:first-child path');
     var fillColor = path.getAttribute('fill');
     var fillOpacity = path.getAttribute('fill-opacity');
@@ -85,7 +79,6 @@ cashbus.render.rect = function (element, context, next) {
         context.fillStyle = fillColor;
         context.globalAlpha = fillOpacity;
         context.fillRect(0, 0, geomInfo.width, geomInfo.height);
-        console.log(fillColor);
     }
     if (strokeColor && strokeColor !== 'none') {
         context.strokeStyle = strokeColor;
@@ -97,11 +90,20 @@ cashbus.render.rect = function (element, context, next) {
     next();
 };
 cashbus.render.picture = function (element, context, next) {
-    console.log('render picture');
-    next();
+    cashbus.util.transformContextByElement(context, element);
+    var sourceImage = element.querySelector('image');
+    var href = sourceImage.getAttribute('xlink:href');
+    var width = parseFloat(sourceImage.getAttribute('width'));
+    var height = parseFloat(sourceImage.getAttribute('height'));
+    var image = new Image();
+    image.onload = function () {
+        context.drawImage(image, 0, 0, width, height);
+        next();
+    };
+    image.src = href;
 };
-cashbus.dom = {};
-cashbus.dom.getGeomInfo = function (element) {
+cashbus.util = {};
+cashbus.util.getGeomInfo = function (element) {
     // assume getComputedStyle returns the value in pixel units for top, left, width, height
     // matrix(m11, m12, m21, m22, dx, dy) for transform
     var style = getComputedStyle(element);
@@ -117,6 +119,17 @@ cashbus.dom.getGeomInfo = function (element) {
         height: parseFloat(style.height),
         matrix: matrix
     };
+};
+cashbus.util.transformContextByGeomInfo = function (context, geomInfo) {
+    var halfWidth = geomInfo.width * 0.5;
+    var halfHeight = geomInfo.height * 0.5;
+    context.translate(halfWidth + geomInfo.left, halfHeight + geomInfo.top);
+    context.transform.apply(context, geomInfo.matrix);
+    context.translate(-halfWidth, -halfHeight);
+};
+cashbus.util.transformContextByElement = function (context, element) {
+    var geomInfo = cashbus.util.getGeomInfo(element);
+    cashbus.util.transformContextByGeomInfo(context, geomInfo);
 };
 cashbus({
     progress: function (current, total) {
