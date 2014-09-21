@@ -68,29 +68,33 @@ cashbus.render.rect = function (element, context, next) {
     var geomInfo = cashbus.util.getGeomInfo(element);
     cashbus.util.transformContextByGeomInfo(context, geomInfo);
     var path = element.querySelector('svg:first-child path');
-    var fillColor = path.getAttribute('fill');
+    var defs = element.querySelector('svg:first-child defs');
     var fillOpacity = path.getAttribute('fill-opacity');
-    var strokeColor = path.getAttribute('stroke');
     var strokeWidth = path.getAttribute('stroke-width');
     var strokeLineJoin = path.getAttribute('stroke-linejoin');
     var strokeOpacity = path.getAttribute('stroke-opacity');
+    fillOpacity = fillOpacity === null ? 1 : fillOpacity;
     strokeOpacity = strokeOpacity === null ? 1 : strokeOpacity;
-    if (fillColor && fillColor !== 'none') {
-        context.fillStyle = fillColor;
-        context.globalAlpha = fillOpacity;
-        context.fillRect(0, 0, geomInfo.width, geomInfo.height);
-    }
-    if (strokeColor && strokeColor !== 'none') {
-        context.strokeStyle = strokeColor;
-        context.lineWidth = parseFloat(strokeWidth);
-        context.lineJoin = strokeLineJoin;
-        context.globalAlpha = strokeOpacity;
-        context.strokeRect(0, 0, geomInfo.width, geomInfo.height);
-    }
-    var style = getComputedStyle($$('.textArea .textBody', element)[0]);
-    context.translate(parseFloat(style.marginLeft), parseFloat(style.marginTop));
-    cashbus.util.renderRichText($$('.textArea .content', element)[0], context, geomInfo.width);
-    next();
+    cashbus.util.createStyle('fill', context, path, defs, function (fillStyle) {
+        if (fillStyle !== 'none') {
+            context.fillStyle = fillStyle;
+            context.globalAlpha = fillOpacity;
+            context.fillRect(0, 0, geomInfo.width, geomInfo.height);
+        }
+        cashbus.util.createStyle('stroke', context, path, defs, function (strokeStyle) {
+            if (strokeStyle !== 'none') {
+                context.strokeStyle = strokeStyle;
+                context.lineWidth = parseFloat(strokeWidth);
+                context.lineJoin = strokeLineJoin;
+                context.globalAlpha = strokeOpacity;
+                context.strokeRect(0, 0, geomInfo.width, geomInfo.height);
+            }
+            var style = getComputedStyle($$('.textArea .textBody', element)[0]);
+            context.translate(parseFloat(style.marginLeft), parseFloat(style.marginTop));
+            cashbus.util.renderRichText($$('.textArea .content', element)[0], context, geomInfo.width);
+            next();
+        });
+    });
 };
 cashbus.render.picture = function (element, context, next) {
     cashbus.util.transformContextByElement(context, element);
@@ -154,6 +158,96 @@ cashbus.util.renderRichText = function (richTextDiv, context, width, height) {
             offset += textMetrics.width;
         });
     });
+};
+cashbus.util.createStyle = function (type, context, path, defs, callback) {
+    var style = path.getAttribute(type);
+    if (style === null || style === undefined || style === 'none') {
+        callback('none');
+        return;
+    }
+    var url = /url\((.+)\)/.exec(style);
+    var id, def;
+    if (url !== null) {
+        id = url[1];
+        if (defs === null || defs === undefined || defs.children.length === 0)
+            throw new Error('there is no def');
+        for (var i = 0; i < defs.children.length; ++i) {
+            def = defs.children[i];
+            if (def.id === id) break;
+        }
+        switch (def.tagName.toLowerCase()) {
+        case 'lineargradient':
+            (function () {
+                style = context.createLinearGradient(
+                    def.x1.baseVal.value,
+                    def.y1.baseVal.value,
+                    def.x2.baseVal.value,
+                    def.y2.baseVal.value
+                );
+                var stop, offset, color, opacity;
+                for (var i = 0; i < def.children.length; ++i) {
+                    stop = def.children[i];
+                    offset = stop.offset.baseVal;
+                    color = cashbus.util.parseColor(stop.style.stopColor);
+                    opacity = parseFloat(stop.style.stopOpacity);
+                    color.a = opacity;
+                    color = cashbus.util.toCSSColorString(color);
+                    style.addColorStop(offset, color);
+                }
+                callback(style);
+            })();
+            return;
+        case 'pattern':
+            callback('none'); // TODO
+            return;
+        default:
+            throw new Error('unsupported style');
+        }
+        return;
+    }
+    callback(style);
+};
+cashbus.util.parseColor = function (cssColorString) {
+    var shorthandHex = /^#(.)(.)(.)$/.exec(cssColorString);
+    if (shorthandHex !== null) {
+        return {
+            r: parseInt(shorthandHex[1] + shorthandHex[1], 16),
+            g: parseInt(shorthandHex[2] + shorthandHex[2], 16),
+            b: parseInt(shorthandHex[3] + shorthandHex[3], 16),
+            a: 1
+        };
+    }
+    var hex = /^#(..)(..)(..)$/.exec(cssColorString);
+    if (hex !== null) {
+        return {
+            r: parseInt(hex[1], 16),
+            g: parseInt(hex[2], 16),
+            b: parseInt(hex[3], 16),
+            a: 1
+        };
+    }
+    var rgb = /^rgb\((.+),(.+),(.+)\)$/.exec(cssColorString);
+    if (rgb !== null) {
+        return {
+            r: parseInt(rgb[1], 10),
+            g: parseInt(rgb[2], 10),
+            b: parseInt(rgb[3], 10),
+            a: 1
+        };
+    }
+    var rgba = /^rgba\((.+),(.+),(.+),(.+)\)$/.exec(cssColorString);
+    if (rgba !== null) {
+        return {
+            r: parseInt(rgba[1], 10),
+            g: parseInt(rgba[2], 10),
+            b: parseInt(rgba[3], 10),
+            a: parseFloat(rgba[4])
+        };
+    }
+    throw new Error('unsupported color string: ' + cssColorString);
+};
+cashbus.util.toCSSColorString = function (rgba) {
+    return 'rgba(' + [rgba.r, rgba.g, rgba.b, rgba.a].join(',') + ')';
 };
 cashbus({
     progress: function (current, total) {
