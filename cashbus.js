@@ -173,8 +173,13 @@ cashbus.util.createStyle = function (type, context, path, defs, callback) {
             throw new Error('there is no def');
         for (var i = 0; i < defs.children.length; ++i) {
             def = defs.children[i];
-            if (def.id === id) break;
+            if (defs.children[i].id === id) {
+                def = defs.children[i];
+                break;
+            }
         }
+        if (def === undefined)
+            throw new Error('there is no corresponding def: ' + id);
         switch (def.tagName.toLowerCase()) {
         case 'lineargradient':
             (function () {
@@ -198,7 +203,24 @@ cashbus.util.createStyle = function (type, context, path, defs, callback) {
             })();
             return;
         case 'pattern':
-            callback('none'); // TODO
+            (function () {
+                var sourceImage = def.children[0];
+                if (sourceImage.tagName.toLowerCase() !== 'image')
+                    throw new Error('unsupported pattern');
+                var href = sourceImage.href.baseVal;
+                var width = parseFloat(sourceImage.width.baseVal.valueAsString);
+                var height = parseFloat(sourceImage.height.baseVal.valueAsString);
+                var image = new Image();
+                image.onload = function () {
+                    var resizeCanvas = document.createElement('canvas');
+                    resizeCanvas.width = width | 0;
+                    resizeCanvas.height = height | 0;
+                    resizeCanvas.getContext('2d').drawImage(image, 0, 0, width, height);
+                    style = context.createPattern(resizeCanvas, 'repeat');
+                    callback(style);
+                };
+                image.src = href;
+            })();
             return;
         default:
             throw new Error('unsupported style');
