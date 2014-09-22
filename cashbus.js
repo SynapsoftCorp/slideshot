@@ -192,7 +192,7 @@ cashbus.util.createStyle = function (type, context, path, defs, callback) {
                 var stop, offset, color, opacity;
                 for (var i = 0; i < def.childNodes.length; ++i) {
                     stop = def.childNodes[i];
-                    offset = parseInt(stop.getAttribute('offset')) * 0.01;
+                    offset = parseInt(stop.getAttribute('offset'), 10) * 0.01;
                     color = cashbus.util.parseColor(stop.style.stopColor);
                     opacity = parseFloat(stop.style.stopOpacity);
                     color.a = opacity;
