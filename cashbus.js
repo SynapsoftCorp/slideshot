@@ -32,15 +32,15 @@ function cashbus(hook, debug) { // capture current slide
     if (renderQueue.length > 0)
         setTimeout(renderNext, 0); // set timeout to clear call stack
     function renderNext() {
+        var renderItem = renderQueue[renderPhase++];
+        var renderFunction = cashbus.render[renderItem.type];
         if (hook && hook.progress)
-            hook.progress(renderPhase, renderQueue.length);
+            hook.progress(renderPhase, renderQueue.length, renderItem.type);
         if (renderPhase === renderQueue.length) {
             if (hook && hook.complete)
                 hook.complete(canvas);
             return;
         }
-        var renderItem = renderQueue[renderPhase++];
-        var renderFunction = cashbus.render[renderItem.type];
         if (renderFunction) {
             context.save();
             renderFunction(renderItem.element, context, function () {
@@ -64,41 +64,21 @@ cashbus.render.slideBackground = function (element, context, next) {
     context.fillRect(0, 0, canvas.width, canvas.height);
     next();
 };
+cashbus.render.bentConnector3 =
 cashbus.render.rect = function (element, context, next) {
     var geomInfo = cashbus.util.getGeomInfo(element);
     cashbus.util.transformContextByGeomInfo(context, geomInfo);
     var path = element.querySelector('svg:first-child path');
     var defs = element.querySelector('svg:first-child defs');
-    var fillOpacity = path.getAttribute('fill-opacity');
-    var strokeWidth = path.getAttribute('stroke-width');
-    var strokeLineJoin = path.getAttribute('stroke-linejoin');
-    var strokeOpacity = path.getAttribute('stroke-opacity');
-    var strokeDash = path.getAttribute('stroke-dasharray');
-    fillOpacity = fillOpacity === null ? 1 : fillOpacity;
-    strokeOpacity = strokeOpacity === null ? 1 : strokeOpacity;
-    if (strokeDash !== null)
-        strokeDash = strokeDash.split(',').map(function (dash) { return parseFloat(dash); });
-    cashbus.util.createStyle('fill', context, geomInfo, path, defs, function (fillStyle) {
-        if (fillStyle !== 'none') {
-            context.fillStyle = fillStyle;
-            context.globalAlpha = fillOpacity;
-            context.fillRect(0, 0, geomInfo.width, geomInfo.height);
-        }
-        cashbus.util.createStyle('stroke', context, geomInfo, path, defs, function (strokeStyle) {
-            if (strokeDash !== null)
-                context.setLineDash(strokeDash);
-            if (strokeStyle !== 'none') {
-                context.strokeStyle = strokeStyle;
-                context.lineWidth = parseFloat(strokeWidth);
-                context.lineJoin = strokeLineJoin;
-                context.globalAlpha = strokeOpacity;
-                context.strokeRect(0, 0, geomInfo.width, geomInfo.height);
-            }
-            var style = getComputedStyle($$('.textArea .textBody', element)[0]);
-            context.translate(parseFloat(style.marginLeft), parseFloat(style.marginTop));
-            cashbus.util.renderRichText($$('.textArea .content', element)[0], context, geomInfo.width);
-            next();
-        });
+    cashbus.util.renderSVGPath(context, geomInfo, path, defs, function () {
+        var areaStyle = getComputedStyle($$('.textArea', element)[0]);
+        var bodyStyle = getComputedStyle($$('.textArea .textBody', element)[0]);
+        context.translate(
+            parseFloat(areaStyle.left) + parseFloat(bodyStyle.marginLeft),
+            parseFloat(areaStyle.top) + parseFloat(bodyStyle.marginTop)
+        );
+        cashbus.util.renderRichText($$('.textArea .content', element)[0], context, geomInfo.width);
+        next();
     });
 };
 cashbus.render.picture = function (element, context, next) {
@@ -163,6 +143,51 @@ cashbus.util.renderRichText = function (richTextDiv, context, width, height) {
             offset += textMetrics.width;
         });
     });
+};
+cashbus.util.renderSVGPath = function (context, geomInfo, path, defs, callback) {
+    var fillOpacity = path.getAttribute('fill-opacity');
+    var strokeWidth = path.getAttribute('stroke-width');
+    var strokeLineJoin = path.getAttribute('stroke-linejoin');
+    var strokeOpacity = path.getAttribute('stroke-opacity');
+    var strokeDash = path.getAttribute('stroke-dasharray');
+    fillOpacity = fillOpacity === null ? 1 : fillOpacity;
+    strokeOpacity = strokeOpacity === null ? 1 : strokeOpacity;
+    if (strokeDash !== null)
+        strokeDash = strokeDash.split(',').map(function (dash) { return parseFloat(dash); });
+    cashbus.util.doSVGPath(context, path.getAttribute('d'));
+    cashbus.util.createStyle('fill', context, geomInfo, path, defs, function (fillStyle) {
+        if (fillStyle !== 'none') {
+            context.fillStyle = fillStyle;
+            context.globalAlpha = fillOpacity;
+            context.fill();
+        }
+        cashbus.util.createStyle('stroke', context, geomInfo, path, defs, function (strokeStyle) {
+            if (strokeDash !== null)
+                context.setLineDash(strokeDash);
+            if (strokeStyle !== 'none') {
+                context.strokeStyle = strokeStyle;
+                context.lineWidth = parseFloat(strokeWidth);
+                context.lineJoin = strokeLineJoin;
+                context.globalAlpha = strokeOpacity;
+                context.stroke();
+            }
+            callback();
+        });
+    });
+};
+cashbus.util.doSVGPath = function (context, svgPathString) {
+    var d = svgPathString.split(/\s+|,/).reverse();
+    var sx = 0, sy = 0, x = 0, y = 0;
+    context.beginPath();
+    while (d.length > 0) {
+        switch (d.pop()) {
+        case 'M': context.moveTo(sx = x = d.pop(), sy = y = d.pop()); continue;
+        case 'm': context.moveTo(sx = x += d.pop(), sy = y += d.pop()); continue;
+        case 'L': context.lineTo(x = d.pop(), y = d.pop()); continue;
+        case 'l': context.lineTo(x += d.pop(), y += d.pop()); continue;
+        case 'Z': case 'z': x = sx; y = sy; context.closePath(); continue;
+        }
+    }
 };
 cashbus.util.createStyle = function (type, context, geomInfo, path, defs, callback) {
     var style = path.getAttribute(type);
@@ -277,8 +302,8 @@ cashbus.util.toCSSColorString = function (rgba) {
     return 'rgba(' + [rgba.r, rgba.g, rgba.b, rgba.a].join(',') + ')';
 };
 cashbus({
-    progress: function (current, total) {
-        console.log(current + ' / ' + total);
+    progress: function (current, total, type) {
+        console.log(type + ': ' + current + ' / ' + total);
     },
     complete: function (canvas) {
         console.log('render completed');
