@@ -169,12 +169,12 @@ cashbus.util.createStyle = function (type, context, path, defs, callback) {
     var id, def;
     if (url !== null) {
         id = url[1];
-        if (defs === null || defs === undefined || defs.children.length === 0)
+        if (defs === null || defs === undefined || defs.childNodes.length === 0)
             throw new Error('there is no def');
-        for (var i = 0; i < defs.children.length; ++i) {
-            def = defs.children[i];
-            if (defs.children[i].id === id) {
-                def = defs.children[i];
+        for (var i = 0; i < defs.childNodes.length; ++i) {
+            def = defs.childNodes[i];
+            if (defs.childNodes[i].id === id) {
+                def = defs.childNodes[i];
                 break;
             }
         }
@@ -190,9 +190,9 @@ cashbus.util.createStyle = function (type, context, path, defs, callback) {
                     def.y2.baseVal.value
                 );
                 var stop, offset, color, opacity;
-                for (var i = 0; i < def.children.length; ++i) {
-                    stop = def.children[i];
-                    offset = stop.offset.baseVal;
+                for (var i = 0; i < def.childNodes.length; ++i) {
+                    stop = def.childNodes[i];
+                    offset = parseInt(stop.getAttribute('offset')) * 0.01;
                     color = cashbus.util.parseColor(stop.style.stopColor);
                     opacity = parseFloat(stop.style.stopOpacity);
                     color.a = opacity;
@@ -204,7 +204,7 @@ cashbus.util.createStyle = function (type, context, path, defs, callback) {
             return;
         case 'pattern':
             (function () {
-                var sourceImage = def.children[0];
+                var sourceImage = def.childNodes[0];
                 if (sourceImage.tagName.toLowerCase() !== 'image')
                     throw new Error('unsupported pattern');
                 var href = sourceImage.href.baseVal;
