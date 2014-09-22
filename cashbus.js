@@ -78,16 +78,15 @@ cashbus.render.rect = function (element, context, next) {
     strokeOpacity = strokeOpacity === null ? 1 : strokeOpacity;
     if (strokeDash !== null)
         strokeDash = strokeDash.split(',').map(function (dash) { return parseFloat(dash); });
-    cashbus.util.createStyle('fill', context, path, defs, function (fillStyle) {
+    cashbus.util.createStyle('fill', context, geomInfo, path, defs, function (fillStyle) {
         if (fillStyle !== 'none') {
             context.fillStyle = fillStyle;
             context.globalAlpha = fillOpacity;
             context.fillRect(0, 0, geomInfo.width, geomInfo.height);
         }
-        cashbus.util.createStyle('stroke', context, path, defs, function (strokeStyle) {
+        cashbus.util.createStyle('stroke', context, geomInfo, path, defs, function (strokeStyle) {
             if (strokeDash !== null)
                 context.setLineDash(strokeDash);
-            console.log(strokeDash);
             if (strokeStyle !== 'none') {
                 context.strokeStyle = strokeStyle;
                 context.lineWidth = parseFloat(strokeWidth);
@@ -165,7 +164,7 @@ cashbus.util.renderRichText = function (richTextDiv, context, width, height) {
         });
     });
 };
-cashbus.util.createStyle = function (type, context, path, defs, callback) {
+cashbus.util.createStyle = function (type, context, geomInfo, path, defs, callback) {
     var style = path.getAttribute(type);
     if (style === null || style === undefined || style === 'none') {
         callback('none');
@@ -190,10 +189,10 @@ cashbus.util.createStyle = function (type, context, path, defs, callback) {
         case 'lineargradient':
             (function () {
                 style = context.createLinearGradient(
-                    def.x1.baseVal.value,
-                    def.y1.baseVal.value,
-                    def.x2.baseVal.value,
-                    def.y2.baseVal.value
+                    parseFloat(def.x1.baseVal.valueAsString) * geomInfo.width * 0.01,
+                    parseFloat(def.y1.baseVal.valueAsString) * geomInfo.height * 0.01,
+                    parseFloat(def.x2.baseVal.valueAsString) * geomInfo.width * 0.01,
+                    parseFloat(def.y2.baseVal.valueAsString) * geomInfo.height * 0.01
                 );
                 var stop, offset, color, opacity;
                 for (var i = 0; i < def.childNodes.length; ++i) {
