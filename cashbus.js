@@ -73,8 +73,11 @@ cashbus.render.rect = function (element, context, next) {
     var strokeWidth = path.getAttribute('stroke-width');
     var strokeLineJoin = path.getAttribute('stroke-linejoin');
     var strokeOpacity = path.getAttribute('stroke-opacity');
+    var strokeDash = path.getAttribute('stroke-dasharray');
     fillOpacity = fillOpacity === null ? 1 : fillOpacity;
     strokeOpacity = strokeOpacity === null ? 1 : strokeOpacity;
+    if (strokeDash !== null)
+        strokeDash = strokeDash.split(',').map(function (dash) { return parseFloat(dash); });
     cashbus.util.createStyle('fill', context, path, defs, function (fillStyle) {
         if (fillStyle !== 'none') {
             context.fillStyle = fillStyle;
@@ -82,6 +85,9 @@ cashbus.render.rect = function (element, context, next) {
             context.fillRect(0, 0, geomInfo.width, geomInfo.height);
         }
         cashbus.util.createStyle('stroke', context, path, defs, function (strokeStyle) {
+            if (strokeDash !== null)
+                context.setLineDash(strokeDash);
+            console.log(strokeDash);
             if (strokeStyle !== 'none') {
                 context.strokeStyle = strokeStyle;
                 context.lineWidth = parseFloat(strokeWidth);
