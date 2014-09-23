@@ -160,8 +160,14 @@ cashbus.util.renderRichText = function (richTextDiv, context, width, height) {
     $$('p, li', richTextDiv).each(function (element) {
         var offset = 0;
         var style = getComputedStyle(element);
-        verticalOffset += parseFloat(style.lineHeight);
-        $$('span', element).each(function (element) {
+        var lineHeight = parseFloat(style.lineHeight);
+        verticalOffset += lineHeight;
+        Array.prototype.forEach.call(element.querySelectorAll('span, br'), function (element) {
+            if (element.tagName.toLowerCase() === 'br') {
+                verticalOffset += lineHeight;
+                offset = 0;
+                return; // continue
+            }
             var style = getComputedStyle(element);
             var font = [style.fontSize, style.fontFamily];
             if (style.fontWeight === 'bold') font.unshift('bold');
