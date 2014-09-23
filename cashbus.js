@@ -7,25 +7,43 @@ function cashbus(hook, debug) { // capture current slide
     canvas.height = parseInt(slideStyle.height, 10);
     var renderQueue = [];
     $$('> div', canvasWrapper).each(function (element) {
-        var type;
         var $element = $Element(element);
-        if ($element.hasClass('placeHolder')) {
-            type = element.className.trim().split(/\s+/)[1];
+        var zIndex = element.style.zIndex | 0;
+        if ($element.hasClass('group')) {
+            $$('.grouped', element).each(function (groupItem, gIndex) {
+                renderQueue.push({
+                    type: groupItem.className.trim().split(/\s+/)[1],
+                    element: groupItem,
+                    zIndex: zIndex,
+                    isGrouped: true,
+                    group: element,
+                    gIndex: gIndex
+                });
+            });
+        } else if ($element.hasClass('placeHolder')) {
+            renderQueue.push({
+                type: element.className.trim().split(/\s+/)[1],
+                element: element,
+                zIndex: zIndex,
+                isGrouped: false
+            });
         } else if ($element.hasClass('selection')) {
             return; // ignore selection
         } else {
             if (/slide.+_background/.test(element.id))
-                type = 'slideBackground';
+                renderQueue.push({
+                    type: 'slideBackground',
+                    element: element,
+                    zIndex: zIndex,
+                    isGrouped: false
+                });
             else if (debug)
                 throw new Error('this is not slide background');
         }
-        renderQueue.push({
-            type: type,
-            element: element,
-            zIndex: element.style.zIndex | 0
-        });
     });
     renderQueue.sort(function (a, b) {
+        if (a.zIndex === b.zIndex)
+            return a.gIndex < b.gIndex ? -1 : 1;
         return a.zIndex < b.zIndex ? -1 : 1;
     });
     var renderPhase = 0;
@@ -41,8 +59,13 @@ function cashbus(hook, debug) { // capture current slide
                 hook.complete(canvas);
             return;
         }
+        var groupGeomInfo;
         if (renderFunction) {
             context.save();
+            if (renderItem.isGrouped) {
+                groupGeomInfo = cashbus.util.getGeomInfo(renderItem.group);
+                cashbus.util.transformContextByGeomInfo(context, groupGeomInfo);
+            }
             renderFunction(renderItem.element, context, function () {
                 context.restore();
                 setTimeout(renderNext, 0);
@@ -65,6 +88,8 @@ cashbus.render.slideBackground = function (element, context, next) {
     next();
 };
 cashbus.render.bentConnector3 =
+cashbus.render.rtTriangle =
+cashbus.render.snip2DiagRect =
 cashbus.render.rect = function (element, context, next) {
     var geomInfo = cashbus.util.getGeomInfo(element);
     cashbus.util.transformContextByGeomInfo(context, geomInfo);
@@ -100,10 +125,14 @@ cashbus.util.getGeomInfo = function (element) {
     // matrix(m11, m12, m21, m22, dx, dy) for transform
     var style = getComputedStyle(element);
     var transform = style.transform;
-    if (!transform || transform === 'none' || !/matrix\(/.test(transform)) return;
-    var matrix = transform.replace(/matrix\(|\)/g, '').split(',').map(function (string) {
-        return parseFloat(string);
-    });
+    var matrix;
+    if (!transform || transform === 'none' || !/matrix\(/.test(transform)) {
+        matrix = [1, 0, 0, 1, 0, 0]; // a unit matrix, E
+    } else {
+        matrix = transform.replace(/matrix\(|\)/g, '').split(',').map(function (string) {
+            return parseFloat(string);
+        });
+    }
     return {
         top: parseFloat(style.top),
         left: parseFloat(style.left),
