@@ -49,16 +49,13 @@ function cashbus(hook, debug) { // capture current slide
     var renderPhase = 0;
     if (renderQueue.length > 0)
         setTimeout(renderNext, 0); // set timeout to clear call stack
+    else if (hook && hook.complete)
+        setTimeout(function () { hook.complete(canvas); }, 0);
     function renderNext() {
         var renderItem = renderQueue[renderPhase++];
         var renderFunction = cashbus.render[renderItem.type];
         if (hook && hook.progress)
             hook.progress(renderPhase, renderQueue.length, renderItem.type);
-        if (renderPhase === renderQueue.length) {
-            if (hook && hook.complete)
-                hook.complete(canvas);
-            return;
-        }
         var groupGeomInfo;
         if (renderFunction) {
             context.save();
@@ -68,6 +65,11 @@ function cashbus(hook, debug) { // capture current slide
             }
             renderFunction(renderItem.element, context, function () {
                 context.restore();
+                if (renderPhase === renderQueue.length) {
+                    if (hook && hook.complete)
+                        hook.complete(canvas);
+                    return;
+                }
                 setTimeout(renderNext, 0);
             });
         }
