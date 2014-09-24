@@ -65,19 +65,22 @@ function cashbus(hook, debug) { // capture current slide
             }
             renderFunction(renderItem.element, context, function () {
                 context.restore();
-                if (renderPhase === renderQueue.length) {
-                    if (hook && hook.complete)
-                        hook.complete(canvas);
-                    return;
-                }
-                setTimeout(renderNext, 0);
+                completeOrNext();
             });
         }
         else {
             if (debug)
                 throw new Error('we need to implement ' + renderItem.type + ' render function');
-            setTimeout(renderNext, 0);
+            completeOrNext();
         }
+    }
+    function completeOrNext() {
+        if (renderPhase === renderQueue.length) {
+            if (hook && hook.complete)
+                hook.complete(canvas);
+            return;
+        }
+        setTimeout(renderNext, 0);
     }
     return canvas;
 }
@@ -89,22 +92,217 @@ cashbus.render.slideBackground = function (element, context, next) {
     context.fillRect(0, 0, canvas.width, canvas.height);
     next();
 };
+cashbus.render.line =
+cashbus.render.straightConnector1 =
+cashbus.render.bentConnector2 =
 cashbus.render.bentConnector3 =
-cashbus.render.rtTriangle =
+cashbus.render.bentConnector4 =
+cashbus.render.bentConnector5 =
+cashbus.render.curvedConnector2 =
+cashbus.render.curvedConnector3 =
+cashbus.render.curvedConnector4 =
+cashbus.render.curvedConnector5 =
+cashbus.render.roundrect =
+cashbus.render.roundRect =
+cashbus.render.snip1Rect =
+cashbus.render.snip2SameRect =
 cashbus.render.snip2DiagRect =
+cashbus.render.snipRoundRect =
+cashbus.render.round1Rect =
+cashbus.render.round2SameRect =
+cashbus.render.round2DiagRect =
+cashbus.render.oval =
+cashbus.render.ellipse =
+cashbus.render.triangle =
+cashbus.render.rtTriangle =
+cashbus.render.parallelogram =
+cashbus.render.Trapezoid =
+cashbus.render.trapezoid =
+cashbus.render.Trapezoid_2007 =
+cashbus.render.trapezoid_2007 =
+cashbus.render.diamond =
+cashbus.render.pentagon =
+cashbus.render.hexagon =
+cashbus.render.heptagon =
+cashbus.render.octagon =
+cashbus.render.decagon =
+cashbus.render.dodecagon =
+cashbus.render.pie =
+cashbus.render.chord =
+cashbus.render.frame =
+cashbus.render.halfFrame =
+cashbus.render.corner =
+cashbus.render.diagStripe =
+cashbus.render.plus =
+cashbus.render.plaque =
+cashbus.render.can =
+cashbus.render.cube =
+cashbus.render.bevel =
+cashbus.render.Donut =
+cashbus.render.donut =
+cashbus.render.NoSmoking =
+cashbus.render.nosmoking =
+cashbus.render.Nosmoking =
+cashbus.render.noSmoking =
+cashbus.render.blockArc =
+cashbus.render.foldedCorner =
+cashbus.render.smileyFace =
+cashbus.render.heart =
+cashbus.render.lightningBolt =
+cashbus.render.sun =
+cashbus.render.moon =
+cashbus.render.cloud =
+cashbus.render.arc =
+cashbus.render.bracketPair =
+cashbus.render.bracePair =
+cashbus.render.leftBracket =
+cashbus.render.rightBracket =
+cashbus.render.leftBrace =
+cashbus.render.rightBrace =
+cashbus.render.mathPlus =
+cashbus.render.mathMinus =
+cashbus.render.mathMultiply =
+cashbus.render.mathDivide =
+cashbus.render.mathEqual =
+cashbus.render.mathNotEqual =
+cashbus.render.rightArrow =
+cashbus.render.leftArrow =
+cashbus.render.upArrow =
+cashbus.render.downArrow =
+cashbus.render.leftRightArrow =
+cashbus.render.upDownArrow =
+cashbus.render.quadArrow =
+cashbus.render.LeftRightUpArrow =
+cashbus.render.leftRightUpArrow =
+cashbus.render.bentArrow =
+cashbus.render.uturnArrow =
+cashbus.render.leftUpArrow =
+cashbus.render.bentUpArrow =
+cashbus.render.curvedRightArrow =
+cashbus.render.curvedLeftArrow =
+cashbus.render.curvedUpArrow =
+cashbus.render.curvedDownArrow =
+cashbus.render.stripedRightArrow =
+cashbus.render.notchedRightArrow =
+cashbus.render.homePlate =
+cashbus.render.chevron =
+cashbus.render.rightArrowCallout =
+cashbus.render.leftArrowCallout =
+cashbus.render.upArrowCallout =
+cashbus.render.downArrowCallout =
+cashbus.render.leftRightArrowCallout =
+cashbus.render.quadArrowCallout =
+cashbus.render.flowChartProcess =
+cashbus.render.flowChartAlternateProcess =
+cashbus.render.flowChartDecision =
+cashbus.render.flowChartInputOutput =
+cashbus.render.flowChartPredefinedProcess =
+cashbus.render.flowChartInternalStorage =
+cashbus.render.flowChartDocument =
+cashbus.render.flowChartMultidocument =
+cashbus.render.flowChartTerminator =
+cashbus.render.flowChartPreparation =
+cashbus.render.flowChartManualInput =
+cashbus.render.flowChartManualOperation =
+cashbus.render.flowChartConnector =
+cashbus.render.flowChartOffpageConnector =
+cashbus.render.flowChartPunchedCard =
+cashbus.render.flowChartPunchedTape =
+cashbus.render.flowChartSummingJunction =
+cashbus.render.flowChartOr =
+cashbus.render.flowChartCollate =
+cashbus.render.flowChartSort =
+cashbus.render.flowChartExtract =
+cashbus.render.flowChartMerge =
+cashbus.render.flowChartOnlineStorage =
+cashbus.render.flowChartDelay =
+cashbus.render.flowChartMagneticTape =
+cashbus.render.flowChartMagneticDisk =
+cashbus.render.flowChartMagneticDrum =
+cashbus.render.flowChartDisplay =
+cashbus.render.irregularSeal1 =
+cashbus.render.irregularSeal2 =
+cashbus.render.star4 =
+cashbus.render.star5 =
+cashbus.render.star6 =
+cashbus.render.star7 =
+cashbus.render.star8 =
+cashbus.render.star10 =
+cashbus.render.star12 =
+cashbus.render.star16 =
+cashbus.render.star24 =
+cashbus.render.star32 =
+cashbus.render.ribbon2 =
+cashbus.render.ribbon =
+cashbus.render.verticalScroll =
+cashbus.render.horizontalScroll =
+cashbus.render.wave =
+cashbus.render.doubleWave =
+cashbus.render.wedgeRectCallout =
+cashbus.render.wedgeRoundRectCallout =
+cashbus.render.wedgeEllipseCallout =
+cashbus.render.custom =
+cashbus.render.teardrop =
+cashbus.render.cloudCallout =
+cashbus.render.borderCallout1 =
+cashbus.render.borderCallout2 =
+cashbus.render.borderCallout3 =
+cashbus.render.borderCallout4 =
+cashbus.render.accentCallout1 =
+cashbus.render.accentCallout2 =
+cashbus.render.accentCallout3 =
+cashbus.render.accentCallout4 =
+cashbus.render.callout1 =
+cashbus.render.callout2 =
+cashbus.render.callout3 =
+cashbus.render.callout4 =
+cashbus.render.accentBorderCallout1 =
+cashbus.render.accentBorderCallout2 =
+cashbus.render.accentBorderCallout3 =
+cashbus.render.accentBorderCallout4 =
+cashbus.render.unknown =
+cashbus.render.upDownArrowCallout =
+cashbus.render.circularArrow =
+cashbus.render.ellipseRibbon2 =
+cashbus.render.ellipseRibbon =
+cashbus.render.actionButtonBackPrevious =
+cashbus.render.actionButtonBeginning =
+cashbus.render.actionButtonBlank =
+cashbus.render.actionButtonDocument =
+cashbus.render.actionButtonEnd =
+cashbus.render.actionButtonForwardNext =
+cashbus.render.actionButtonHelp =
+cashbus.render.actionButtonHome =
+cashbus.render.actionButtonInformation =
+cashbus.render.actionButtonMovie =
+cashbus.render.actionButtonReturn =
+cashbus.render.actionButtonSound =
+cashbus.render.leftCircularArrow =
+cashbus.render.swooshArrow =
+cashbus.render.gear9 =
+cashbus.render.gear6 =
+cashbus.render.leftRightRibbon =
+cashbus.render.pieWedge =
+cashbus.render.funnel =
 cashbus.render.rect = function (element, context, next) {
     var geomInfo = cashbus.util.getGeomInfo(element);
     cashbus.util.transformContextByGeomInfo(context, geomInfo);
     var path = element.querySelector('svg:first-child path');
     var defs = element.querySelector('svg:first-child defs');
     cashbus.util.renderSVGPath(context, geomInfo, path, defs, function () {
-        var areaStyle = getComputedStyle($$('.textArea', element)[0]);
-        var bodyStyle = getComputedStyle($$('.textArea .textBody', element)[0]);
+        var $textArea = $$('.textArea', element);
+        if ($textArea.length < 1) {
+            next();
+            return;
+        }
+        var textArea = $textArea[0];
+        var areaStyle = getComputedStyle(textArea);
+        var bodyStyle = getComputedStyle($$('.textBody', textArea)[0]);
         context.translate(
             parseFloat(areaStyle.left) + parseFloat(bodyStyle.marginLeft),
             parseFloat(areaStyle.top) + parseFloat(bodyStyle.marginTop)
         );
-        cashbus.util.renderRichText($$('.textArea .content', element)[0], context, geomInfo.width);
+        cashbus.util.renderRichText($$('.content', textArea)[0], context, geomInfo.width);
         next();
     });
 };
@@ -216,13 +414,20 @@ cashbus.util.doSVGPath = function (context, svgPathString) {
     var d = svgPathString.split(/\s+|,/).reverse();
     var sx = 0, sy = 0, x = 0, y = 0;
     context.beginPath();
-    while (d.length > 0) {
-        switch (d.pop()) {
+    while (d.length > 1) {
+        var command = d.pop();
+        switch (command) {
         case 'M': context.moveTo(sx = x = d.pop(), sy = y = d.pop()); continue;
         case 'm': context.moveTo(sx = x += d.pop(), sy = y += d.pop()); continue;
         case 'L': context.lineTo(x = d.pop(), y = d.pop()); continue;
         case 'l': context.lineTo(x += d.pop(), y += d.pop()); continue;
+        case 'C': context.bezierCurveTo(d.pop(), d.pop(), d.pop(), d.pop(), x = d.pop(), y = d.pop()); continue;
+        case 'c': context.bezierCurveTo(x + d.pop(), y + d.pop(), x + d.pop(), y + d.pop(), x += d.pop(), y += d.pop()); continue;
+        case 'A': // TODO: fix
+            d.pop(); d.pop(); d.pop(); d.pop(); d.pop();
+            context.lineTo(x = d.pop(), y = d.pop()); continue;
         case 'Z': case 'z': x = sx; y = sy; context.closePath(); continue;
+        default: throw new Error('unsupported command: ' + command);
         }
     }
 };
