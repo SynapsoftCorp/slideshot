@@ -319,6 +319,24 @@ cashbus.render.picture = function (element, context, next) {
     };
     image.src = href;
 };
+cashbus.render.table = function (element, context, next) {
+    cashbus.util.transformContextByElement(context, element);
+    var shape = element.querySelector('div:first-child');
+    // fill cells
+    var cells = shape.querySelector('div:first-child').children;
+    var cell, cellGeomInfo;
+    for (var i = 0; i < cells.length; ++i) {
+        cell = cells[i];
+        cellGeomInfo = cashbus.util.getGeomInfo(cell);
+        context.fillStyle = cashbus.util.applyOpacityToColorString(
+            cellGeomInfo.style.backgroundColor,
+            parseFloat(cellGeomInfo.style.opacity)
+        );
+        context.fillRect(cellGeomInfo.left, cellGeomInfo.top, cellGeomInfo.width, cellGeomInfo.height);
+    }
+    // TODO: outlines, text
+    next();
+};
 cashbus.util = {};
 cashbus.util.getGeomInfo = function (element) {
     // assume getComputedStyle returns the value in pixel units for top, left, width, height
@@ -338,7 +356,8 @@ cashbus.util.getGeomInfo = function (element) {
         left: parseFloat(style.left),
         width: parseFloat(style.width),
         height: parseFloat(style.height),
-        matrix: matrix
+        matrix: matrix,
+        style: style
     };
 };
 cashbus.util.transformContextByGeomInfo = function (context, geomInfo) {
@@ -561,10 +580,10 @@ cashbus.util.createStyle = function (type, context, geomInfo, path, defs, callba
                 for (var i = 0; i < def.childNodes.length; ++i) {
                     stop = def.childNodes[i];
                     offset = parseInt(stop.getAttribute('offset'), 10) * 0.01;
-                    color = cashbus.util.parseColor(stop.style.stopColor);
-                    opacity = parseFloat(stop.style.stopOpacity);
-                    color.a = opacity;
-                    color = cashbus.util.toCSSColorString(color);
+                    color = cashbus.util.applyOpacityToColorString(
+                        stop.style.stopColor,
+                        parseFloat(stop.style.stopOpacity)
+                    );
                     style.addColorStop(offset, color);
                 }
                 callback(style);
@@ -638,6 +657,11 @@ cashbus.util.parseColor = function (cssColorString) {
 };
 cashbus.util.toCSSColorString = function (rgba) {
     return 'rgba(' + [rgba.r, rgba.g, rgba.b, rgba.a].join(',') + ')';
+};
+cashbus.util.applyOpacityToColorString = function (cssColorString, opacity) {
+    color = cashbus.util.parseColor(cssColorString);
+    color.a = opacity;
+    return cashbus.util.toCSSColorString(color);
 };
 cashbus({
     progress: function (current, total, type) {
