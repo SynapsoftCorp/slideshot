@@ -287,9 +287,9 @@ cashbus.render.funnel =
 cashbus.render.rect = function (element, context, next) {
     var geomInfo = cashbus.util.getGeomInfo(element);
     cashbus.util.transformContextByGeomInfo(context, geomInfo);
-    var path = element.querySelector('svg:first-child path');
+    var paths = element.querySelectorAll('svg:first-child g > path');
     var defs = element.querySelector('svg:first-child defs');
-    cashbus.util.renderSVGPath(context, geomInfo, path, defs, function () {
+    cashbus.util.renderSVGPaths(context, geomInfo, paths, defs, function () {
         var $textArea = $$('.textArea', element);
         if ($textArea.length < 1) {
             next();
@@ -410,6 +410,19 @@ cashbus.util.renderSVGPath = function (context, geomInfo, path, defs, callback) 
         });
     });
 };
+cashbus.util.renderSVGPaths = function (context, geomInfo, paths, defs, callback) {
+    var current = 0;
+    next();
+    function next() {
+        if (current === paths.length)
+            callback();
+        else
+            setTimeout(doNext, 0);
+    }
+    function doNext() {
+        cashbus.util.renderSVGPath(context, geomInfo, paths[current++], defs, next);
+    }
+};
 cashbus.util.ellipticalArcTo = function (context, sx, sy, rx, ry, xAxisRotation, largeArcFlag, sweepFlag, x, y) {
     // calc
     var d2r, pi, pi2, quarter;
@@ -503,6 +516,8 @@ cashbus.util.doSVGPath = function (context, svgPathString) {
         case 'm': context.moveTo(sx = x += +d.pop(), sy = y += +d.pop()); continue;
         case 'L': context.lineTo(x = +d.pop(), y = +d.pop()); continue;
         case 'l': context.lineTo(x += +d.pop(), y += +d.pop()); continue;
+        case 'Q': context.quadraticCurveTo(+d.pop(), +d.pop(), x = +d.pop(), y = +d.pop()); continue;
+        case 'q': context.quadraticCurveTo(x + (+d.pop()) ,y + (+d.pop()), x += +d.pop(), y += +d.pop()); continue;
         case 'C': context.bezierCurveTo(+d.pop(), +d.pop(), +d.pop(), +d.pop(), x = +d.pop(), y = +d.pop()); continue;
         case 'c': context.bezierCurveTo(x + (+d.pop()), y + (+d.pop()), x + (+d.pop()), y + (+d.pop()), x += +d.pop(), y += +d.pop()); continue;
         case 'A': cashbus.util.ellipticalArcTo(context, x, y, +d.pop(), +d.pop(), +d.pop(), +d.pop(), +d.pop(), x = +d.pop(), y = +d.pop()); continue;
