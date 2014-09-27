@@ -425,7 +425,7 @@ cashbus.util.renderSVGPaths = function (context, geomInfo, paths, defs, callback
 };
 cashbus.util.ellipticalArcTo = function (context, sx, sy, rx, ry, xAxisRotation, largeArcFlag, sweepFlag, x, y) {
     // calc
-    var d2r, pi, pi2, quarter;
+    var d2r, pi, pi2;
     var hdx, hdy, hsx, hsy;
     var cosr, sinr;
     var xPrime, yPrime, xpxp, ypyp;
