@@ -410,6 +410,88 @@ cashbus.util.renderSVGPath = function (context, geomInfo, path, defs, callback) 
         });
     });
 };
+cashbus.util.ellipticalArcTo = function (context, sx, sy, rx, ry, xAxisRotation, largeArcFlag, sweepFlag, x, y) {
+    // calc
+    var d2r, pi, pi2, quarter;
+    var hdx, hdy, hsx, hsy;
+    var cosr, sinr;
+    var xPrime, yPrime, xpxp, ypyp;
+    var radii, rxrx, ryry;
+    var rxrxypyp, ryryxpxp;
+    var c, cxPrime, cyPrime;
+    var cx, cy;
+    var ux, uy, vx, vy;
+    var startAngle, sweepAngle;
+    if (+rx === 0 || +ry === 0) {
+        context.lineTo(x, y);
+        return;
+    }
+    pi = Math.PI;
+    d2r = pi / 180;
+    pi2 = pi + pi;
+    xAxisRotation = xAxisRotation * d2r;
+    hdx = (sx - x) * 0.5;
+    hdy = (sy - y) * 0.5;
+    hsx = (sx + x) * 0.5;
+    hsy = (sy + y) * 0.5;
+    cosr = Math.cos(xAxisRotation);
+    sinr = Math.sin(xAxisRotation);
+    xPrime = (cosr * hdx) + (sinr * hdy);
+    yPrime = (-sinr * hdx) + (cosr * hdy);
+    rxrx = rx * rx;
+    ryry = ry * ry;
+    xpxp = xPrime * xPrime;
+    ypyp = yPrime * yPrime;
+    radii = (xpxp / rxrx) + (ypyp / ryry);
+    if (radii > 1) {
+        rx = Math.sqrt(radii) * rx;
+        ry = Math.sqrt(radii) * ry;
+        rxrx = rx * rx;
+        ryry = ry * ry;
+    }
+    rxrxypyp = rxrx * ypyp;
+    ryryxpxp = ryry * xpxp;
+    c = ((rxrx * ryry) - rxrxypyp - ryryxpxp) / (rxrxypyp + ryryxpxp);
+    c = Math.sqrt(c < 0 ? 0 : c);
+    c = largeArcFlag === sweepFlag ? -c : c;
+    cxPrime = c * ((rx * yPrime) / ry);
+    cyPrime = c * -((ry * xPrime) / rx);
+    cx = (cosr * cxPrime) + (-sinr * cyPrime) + hsx;
+    cy = (sinr * cxPrime) + (cosr * cyPrime) + hsy;
+    ux = (xPrime - cxPrime) / rx;
+    uy = (yPrime - cyPrime) / ry;
+    vx = (-xPrime - cxPrime) / rx;
+    vy = (-yPrime - cyPrime) / ry;
+    startAngle = Math.atan2(uy, ux) - Math.atan2(0, 1);
+    sweepAngle = Math.atan2(vy, vx) - Math.atan2(uy, ux);
+    if (!sweepFlag && sweepAngle > 0)
+        sweepAngle -= pi2;
+    else if (sweepFlag && sweepAngle < 0)
+        sweepAngle += pi2;
+    sweepAngle %= pi2;
+    // render
+    var segs = Math.ceil(Math.abs(sweepAngle) / (pi * 0.25));
+    var segAngle = sweepAngle / segs;
+    var theta = segAngle * 0.5;
+    var cost = Math.cos(theta);
+    var angle = startAngle;
+    var sina, cosa, sinb, cosb;
+    for (var i = 0; i < segs; ++i) {
+        angle += theta + theta;
+        sina = Math.sin(angle - theta);
+        cosa = Math.cos(angle - theta);
+        sinb = Math.sin(angle);
+        cosb = Math.cos(angle);
+        div = Math.cos(theta);
+        context.quadraticCurveTo(
+            (rx * cosa * cosr - ry * sina * sinr) / cost + cx,
+            (rx * cosa * sinr + ry * sina * cosr) / cost + cy,
+            (rx * cosb * cosr - ry * sinb * sinr) + cx,
+            (rx * cosb * sinr + ry * sinb * cosr) + cy
+        );
+    }
+    context.lineTo(x, y);
+};
 cashbus.util.doSVGPath = function (context, svgPathString) {
     var d = svgPathString.split(/\s+|,/).reverse();
     var sx = 0, sy = 0, x = 0, y = 0;
@@ -417,15 +499,14 @@ cashbus.util.doSVGPath = function (context, svgPathString) {
     while (d.length > 1) {
         var command = d.pop();
         switch (command) {
-        case 'M': context.moveTo(sx = x = d.pop(), sy = y = d.pop()); continue;
-        case 'm': context.moveTo(sx = x += d.pop(), sy = y += d.pop()); continue;
-        case 'L': context.lineTo(x = d.pop(), y = d.pop()); continue;
-        case 'l': context.lineTo(x += d.pop(), y += d.pop()); continue;
-        case 'C': context.bezierCurveTo(d.pop(), d.pop(), d.pop(), d.pop(), x = d.pop(), y = d.pop()); continue;
-        case 'c': context.bezierCurveTo(x + d.pop(), y + d.pop(), x + d.pop(), y + d.pop(), x += d.pop(), y += d.pop()); continue;
-        case 'A': // TODO: fix
-            d.pop(); d.pop(); d.pop(); d.pop(); d.pop();
-            context.lineTo(x = d.pop(), y = d.pop()); continue;
+        case 'M': context.moveTo(sx = x = +d.pop(), sy = y = +d.pop()); continue;
+        case 'm': context.moveTo(sx = x += +d.pop(), sy = y += +d.pop()); continue;
+        case 'L': context.lineTo(x = +d.pop(), y = +d.pop()); continue;
+        case 'l': context.lineTo(x += +d.pop(), y += +d.pop()); continue;
+        case 'C': context.bezierCurveTo(+d.pop(), +d.pop(), +d.pop(), +d.pop(), x = +d.pop(), y = +d.pop()); continue;
+        case 'c': context.bezierCurveTo(x + (+d.pop()), y + (+d.pop()), x + (+d.pop()), y + (+d.pop()), x += +d.pop(), y += +d.pop()); continue;
+        case 'A': cashbus.util.ellipticalArcTo(context, x, y, +d.pop(), +d.pop(), +d.pop(), +d.pop(), +d.pop(), x = +d.pop(), y = +d.pop()); continue;
+        case 'a': cashbus.util.ellipticalArcTo(context, x, y, +d.pop(), +d.pop(), +d.pop(), +d.pop(), +d.pop(), x += +d.pop(), y += +d.pop()); continue;
         case 'Z': case 'z': x = sx; y = sy; context.closePath(); continue;
         default: throw new Error('unsupported command: ' + command);
         }
