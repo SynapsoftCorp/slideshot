@@ -322,10 +322,12 @@ cashbus.render.picture = function (element, context, next) {
 cashbus.render.table = function (element, context, next) {
     cashbus.util.transformContextByElement(context, element);
     var shape = element.querySelector('div:first-child');
+    var i;
     // fill cells
     var cells = shape.querySelector('div:first-child').children;
     var cell, cellGeomInfo;
-    for (var i = 0; i < cells.length; ++i) {
+    context.save();
+    for (i = 0; i < cells.length; ++i) {
         cell = cells[i];
         cellGeomInfo = cashbus.util.getGeomInfo(cell);
         context.fillStyle = cashbus.util.applyOpacityToColorString(
@@ -334,8 +336,38 @@ cashbus.render.table = function (element, context, next) {
         );
         context.fillRect(cellGeomInfo.left, cellGeomInfo.top, cellGeomInfo.width, cellGeomInfo.height);
     }
-    // TODO: outlines, text
-    next();
+    context.restore();
+    var linesElement = shape.querySelector('svg');
+    var linesElementStyle = getComputedStyle(linesElement);
+    var linesViewBox = linesElement.getAttribute('viewBox').split(/\s+|,/);
+    linesViewBox = {
+        width: +linesViewBox[2],
+        height: +linesViewBox[3]
+    };
+    var lines = linesElement.childNodes;
+    var linesGeomInfo = cashbus.util.getGeomInfo(linesElement);
+    context.save();
+    context.translate(
+        parseFloat(linesElementStyle.left),
+        parseFloat(linesElementStyle.top)
+    );
+    context.scale((1 / linesViewBox.width) * linesGeomInfo.width, (1 / linesViewBox.height) * linesGeomInfo.height);
+    cashbus.util.renderSVGPaths(context, linesGeomInfo, lines, null, function () {
+        context.restore();
+        var textBody = element.querySelector('.textBody');
+        var bodyGeomInfo = cashbus.util.getGeomInfo(textBody);
+        Array.prototype.forEach.call(textBody.children, function (content) {
+            var contentGeomInfo = cashbus.util.getGeomInfo(content);
+            context.save();
+            context.translate(
+                bodyGeomInfo.left + contentGeomInfo.left,
+                bodyGeomInfo.top + contentGeomInfo.top
+            );
+            cashbus.util.renderRichText(content, context, contentGeomInfo.width);
+            context.restore();
+        });
+        next();
+    });
 };
 cashbus.util = {};
 cashbus.util.getGeomInfo = function (element) {
@@ -406,9 +438,23 @@ cashbus.util.renderSVGPath = function (context, geomInfo, path, defs, callback) 
     var strokeDash = path.getAttribute('stroke-dasharray');
     fillOpacity = fillOpacity === null ? 1 : fillOpacity;
     strokeOpacity = strokeOpacity === null ? 1 : strokeOpacity;
-    if (strokeDash !== null)
+    if (!!strokeDash && strokeDash !== 'false')
         strokeDash = strokeDash.split(',').map(function (dash) { return parseFloat(dash); });
-    cashbus.util.doSVGPath(context, path.getAttribute('d'));
+    else
+        strokeDash = null;
+    switch (path.tagName.toLowerCase()) {
+    case 'path':
+        cashbus.util.doSVGPath(context, path.getAttribute('d'));
+        break;
+    case 'line':
+        cashbus.util.doSVGLine(context,
+            path.getAttribute('x1'), path.getAttribute('y1'),
+            path.getAttribute('x2'), path.getAttribute('y2')
+        );
+        break;
+    default:
+        throw new Error('unsupported path');
+    }
     cashbus.util.createStyle('fill', context, geomInfo, path, defs, function (fillStyle) {
         if (fillStyle !== 'none') {
             context.fillStyle = fillStyle;
@@ -431,14 +477,20 @@ cashbus.util.renderSVGPath = function (context, geomInfo, path, defs, callback) 
 };
 cashbus.util.renderSVGPaths = function (context, geomInfo, paths, defs, callback) {
     var current = 0;
-    next();
+    if (paths.length < 1) {
+        callback();
+        return;
+    }
+    doNext();
     function next() {
+        context.restore();
         if (current === paths.length)
             callback();
         else
             setTimeout(doNext, 0);
     }
     function doNext() {
+        context.save();
         cashbus.util.renderSVGPath(context, geomInfo, paths[current++], defs, next);
     }
 };
@@ -545,6 +597,11 @@ cashbus.util.doSVGPath = function (context, svgPathString) {
         default: throw new Error('unsupported command: ' + command);
         }
     }
+};
+cashbus.util.doSVGLine = function (context, x1, y1, x2, y2) {
+    context.beginPath();
+    context.moveTo(+x1, +y1);
+    context.lineTo(+x2, +y2);
 };
 cashbus.util.createStyle = function (type, context, geomInfo, path, defs, callback) {
     var style = path.getAttribute(type);
