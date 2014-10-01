@@ -296,13 +296,15 @@ cashbus.render.rect = function (element, context, next) {
             return;
         }
         var textArea = $textArea[0];
+        var content = $$('.content', textArea)[0];
         var areaStyle = getComputedStyle(textArea);
         var bodyStyle = getComputedStyle($$('.textBody', textArea)[0]);
+        var contentStyle = getComputedStyle(content);
         context.translate(
             parseFloat(areaStyle.left) + parseFloat(bodyStyle.marginLeft),
             parseFloat(areaStyle.top) + parseFloat(bodyStyle.marginTop)
         );
-        cashbus.util.renderRichText($$('.content', textArea)[0], context, geomInfo.width);
+        cashbus.util.renderRichText(content, context, parseFloat(contentStyle.width));
         next();
     });
 };
@@ -403,30 +405,86 @@ cashbus.util.transformContextByElement = function (context, element) {
     var geomInfo = cashbus.util.getGeomInfo(element);
     cashbus.util.transformContextByGeomInfo(context, geomInfo);
 };
-cashbus.util.renderRichText = function (richTextDiv, context, width, height) {
-    var verticalOffset = 0;
-    context.textBaseline = 'ideographic';
+cashbus.util.renderRichText = function (richTextDiv, context, width) {
+    // calc
+    width = Math.abs(width);
+    var currentLine, lines = [];
+    function cut(font, style, text, width) {
+        context.font = font;
+        context.fillStyle = style;
+        if (!text) return 0;
+        if (!width) return text.length;
+        if (context.measureText(text).width <= width) return text.length;
+        var left = 0;
+        var right = text.length;
+        var center, sliced, textMetrics;
+        while (left < right) {
+            center = (left + right) * 0.5;
+            sliced = text.slice(0, center | 0);
+            textMetrics = context.measureText(sliced);
+            if (textMetrics.width == width) return sliced.length;
+            if (textMetrics.width < width)
+                left = Math.ceil(center);
+            else
+                right = Math.floor(center);
+        }
+        if (context.measureText(text.slice(0, left)).width < width)
+            return left;
+        return Math.max(1, left - 1);
+    }
     $$('p, li', richTextDiv).each(function (element) {
-        var offset = 0;
+        var cutWidth;
         var style = getComputedStyle(element);
-        var lineHeight = parseFloat(style.lineHeight);
-        verticalOffset += lineHeight;
+        var height = parseFloat(style.lineHeight);
+        function newLine(height) {
+            currentLine = [];
+            currentLine.height = height;
+            lines.push(currentLine);
+            cutWidth = 0;
+        }
+        newLine(height);
         Array.prototype.forEach.call(element.querySelectorAll('span, br'), function (element) {
             if (element.tagName.toLowerCase() === 'br') {
-                verticalOffset += lineHeight;
-                offset = 0;
+                newLine(height);
                 return; // continue
             }
+            var text = element.textContent;
             var style = getComputedStyle(element);
             var font = [style.fontSize, style.fontFamily];
-            if (style.fontWeight === 'bold') font.unshift('bold');
             if (style.fontStyle === 'italic') font.unshift('italic');
-            context.font = font.join(' ');
-            var text = element.textContent;
-            var textMetrics = context.measureText(text);
-            context.fillStyle = style.color;
-            context.fillText(text, offset, verticalOffset);
-            offset += textMetrics.width;
+            if (style.fontWeight === 'bold') font.unshift('bold');
+            font = font.join(' ');
+            style = style.color;
+            var cutOffset, needToCut;
+            var left, right;
+            do {
+                cutOffset = cut(font, style, text, Math.abs(width - cutWidth));
+                needToCut = cutOffset != text.length;
+                left = text.substr(0, cutOffset);
+                right = text.substr(cutOffset);
+                text = left;
+                cutWidth += context.measureText(left).width;
+                currentLine.push({
+                    font: font,
+                    style: style,
+                    text: text
+                });
+                text = right;
+                if (needToCut) newLine(height);
+            } while (needToCut);
+        });
+    });
+    // render
+    var verticalOffset = 0;
+    context.textBaseline = 'ideographic';
+    lines.forEach(function (line) {
+        var horizontalOffset = 0;
+        verticalOffset += line.height;
+        line.forEach(function (chunk) {
+            context.font = chunk.font;
+            context.fillStyle = chunk.style;
+            context.fillText(chunk.text, horizontalOffset, verticalOffset);
+            horizontalOffset += context.measureText(chunk.text).width;
         });
     });
 };
