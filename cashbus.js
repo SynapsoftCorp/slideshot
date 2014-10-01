@@ -726,7 +726,7 @@ cashbus({
     },
     complete: function (canvas) {
         console.log('render completed');
-        var img = new Image;
+        var img = new Image();
         img.src = canvas.toDataURL();
         img.style.position = 'absolute';
         img.style.top = '0';
@@ -736,8 +736,8 @@ cashbus({
         img.onmousedown = function (e) {
             sx = e.clientX;
             sy = e.clientY;
-            ix = parseInt(img.style.left);
-            iy = parseInt(img.style.top);
+            ix = parseInt(img.style.left, 10);
+            iy = parseInt(img.style.top, 10);
             img.style.opacity = '0.5';
             window.addEventListener('mousemove', mousemove);
             window.addEventListener('mouseup', mouseup);
