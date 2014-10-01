@@ -726,6 +726,34 @@ cashbus({
     },
     complete: function (canvas) {
         console.log('render completed');
-        console.log(canvas.toDataURL());
+        var img = new Image;
+        img.src = canvas.toDataURL();
+        img.style.position = 'absolute';
+        img.style.top = '0';
+        img.style.left = '0';
+        img.style.zIndex = '9999999999';
+        var sx, sy, ix, iy;
+        img.onmousedown = function (e) {
+            sx = e.clientX;
+            sy = e.clientY;
+            ix = parseInt(img.style.left);
+            iy = parseInt(img.style.top);
+            img.style.opacity = '0.5';
+            window.addEventListener('mousemove', mousemove);
+            window.addEventListener('mouseup', mouseup);
+        };
+        function mousemove(e) {
+            img.style.top = (iy + e.clientY - sy) + 'px';
+            img.style.left = (ix + e.clientX - sx) + 'px';
+        }
+        function mouseup(e) {
+            img.style.opacity = '1';
+            window.removeEventListener('mousemove', mousemove);
+            window.removeEventListener('mouseup', mouseup);
+        }
+        img.ondblclick = function () {
+            img.parentElement.removeChild(img);
+        };
+        document.body.appendChild(img);
     }
 }, false);
