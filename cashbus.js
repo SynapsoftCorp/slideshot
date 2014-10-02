@@ -1,4 +1,4 @@
-function cashbus(hook, debug) { // capture current slide
+function cashbus(hook) { // capture current slide
     var canvas = document.createElement('canvas');
     var context = canvas.getContext('2d');
     var canvasWrapper = $$('.canvasWrapper')[0];
@@ -37,7 +37,7 @@ function cashbus(hook, debug) { // capture current slide
                     zIndex: zIndex,
                     isGrouped: false
                 });
-            else if (debug)
+            else if (cashbus.debug)
                 throw new Error('this is not slide background');
         }
     });
@@ -69,7 +69,7 @@ function cashbus(hook, debug) { // capture current slide
             });
         }
         else {
-            if (debug)
+            if (cashbus.debug)
                 throw new Error('we need to implement ' + renderItem.type + ' render function');
             completeOrNext();
         }
@@ -365,7 +365,7 @@ cashbus.render.table = function (element, context, next) {
                 bodyGeomInfo.left + contentGeomInfo.left + contentGeomInfo.marginLeft,
                 bodyGeomInfo.top + contentGeomInfo.top + contentGeomInfo.marginTop
             );
-            cashbus.util.renderRichText(content, context, contentGeomInfo.width);
+            cashbus.util.renderRichText(content, context, contentGeomInfo.width - contentGeomInfo.marginRight);
             context.restore();
         });
         next();
@@ -392,10 +392,40 @@ cashbus.util.getGeomInfo = function (element) {
         height: parseFloat(style.height),
         marginTop: parseFloat(style.marginTop),
         marginLeft: parseFloat(style.marginLeft),
+        marginRight: parseFloat(style.marginRight),
+        marginBottom: parseFloat(style.marginBottom),
         matrix: matrix,
         style: style
     };
 };
+cashbus.util.getBaseline = function (fontSize, fontFamily) { // refer html2canvas
+    var key = fontSize + '@' + fontFamily;
+    var memo = cashbus.util.getBaseline.cache[key];
+    if (memo !== undefined) return memo;
+    var span = document.createElement('span');
+    span.style.fontSize = fontSize;
+    span.style.fontFamily = fontFamily;
+    span.style.margin = span.style.padding = 0;
+    span.appendChild(document.createTextNode('Hello, World!'));
+    var img = new Image();
+    img.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+    img.width = img.height = 1;
+    img.style.margin = img.style.padding = 0;
+    img.style.verticalAlign = 'baseline';
+    var div = document.createElement('div');
+    div.style.visibility = 'hidden';
+    div.style.fontSize = fontSize;
+    div.style.fontFamily = fontFamily;
+    div.style.margin = div.style.padding = 0;
+    div.appendChild(span);
+    div.appendChild(img);
+    document.body.appendChild(div);
+    var baseline = (img.offsetTop - span.offsetTop) + 1;
+    cashbus.util.getBaseline.cache[key] = baseline;
+    document.body.removeChild(div);
+    return baseline;
+};
+cashbus.util.getBaseline.cache = {};
 cashbus.util.transformContextByGeomInfo = function (context, geomInfo) {
     var halfWidth = geomInfo.width * 0.5;
     var halfHeight = geomInfo.height * 0.5;
@@ -439,19 +469,21 @@ cashbus.util.renderRichText = function (richTextDiv, context, width) {
         var style = getComputedStyle(element);
         function newLine() {
             currentLine = [];
+            currentLine.align = style.textAlign;
+            currentLine.width = 0;
             lines.push(currentLine);
             cutWidth = 0;
         }
         newLine();
         Array.prototype.forEach.call(element.querySelectorAll('p > span, p > br, li > span, li > br'), function (element) {
             if (element.tagName.toLowerCase() === 'br') {
-                newLine();
                 return; // continue
             }
             var text = element.textContent;
             var style = getComputedStyle(element);
             var font = [style.fontSize, style.fontFamily];
-            var height = parseFloat(style.lineHeight);
+            var baseline = cashbus.util.getBaseline(style.fontSize, style.fontFamily);
+            var chunkWidth, chunkHeight = parseFloat(style.lineHeight);
             if (style.fontStyle === 'italic') font.unshift('italic');
             if (style.fontWeight === 'bold') font.unshift('bold');
             font = font.join(' ');
@@ -464,9 +496,13 @@ cashbus.util.renderRichText = function (richTextDiv, context, width) {
                 left = text.substr(0, cutOffset);
                 right = text.substr(cutOffset);
                 text = left;
-                cutWidth += context.measureText(left).width;
+                chunkWidth = context.measureText(text).width;
+                cutWidth += chunkWidth;
+                currentLine.width += chunkWidth;
                 currentLine.push({
-                    height: height,
+                    width: chunkWidth,
+                    height: chunkHeight,
+                    baseline: baseline,
                     font: font,
                     style: style,
                     text: text
@@ -476,22 +512,36 @@ cashbus.util.renderRichText = function (richTextDiv, context, width) {
             } while (needToCut);
         });
     });
-    // render
-    var verticalOffset = 0;
-    context.textBaseline = 'ideographic';
     lines.forEach(function (line) {
-        var horizontalOffset = 0;
-        verticalOffset += (function () { // Array.reduce is not working properly on naver slide
+        line.height = (function () { // Array.reduce is not working properly on naver slide
             var result = 0;
             for (var i = 0; i < line.length; ++i)
                 result = Math.max(result, line[i].height);
             return result;
         })();
+    });
+    // render
+    var verticalOffset = 0;
+    context.textBaseline = 'ideographic';
+    lines.forEach(function (line) {
+        var horizontalOffset;
+        switch (line.align) {
+        case 'left': case 'justify':
+            horizontalOffset = 0;
+            break;
+        case 'center':
+            horizontalOffset = width * 0.5 - line.width * 0.5;
+            break;
+        case 'right':
+            horizontalOffset = width - line.width;
+            break;
+        }
+        verticalOffset += line.height;
         line.forEach(function (chunk) {
             context.font = chunk.font;
             context.fillStyle = chunk.style;
             context.fillText(chunk.text, horizontalOffset, verticalOffset);
-            horizontalOffset += context.measureText(chunk.text).width;
+            horizontalOffset += chunk.width;
         });
     });
 };
@@ -785,6 +835,7 @@ cashbus.util.applyOpacityToColorString = function (cssColorString, opacity) {
     color.a = opacity;
     return cashbus.util.toCSSColorString(color);
 };
+cashbus.debug = true;
 cashbus({
     progress: function (current, total, type) {
         console.log(type + ': ' + current + ' / ' + total);
@@ -821,4 +872,4 @@ cashbus({
         };
         document.body.appendChild(img);
     }
-}, false);
+});
