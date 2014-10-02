@@ -362,8 +362,8 @@ cashbus.render.table = function (element, context, next) {
             var contentGeomInfo = cashbus.util.getGeomInfo(content);
             context.save();
             context.translate(
-                bodyGeomInfo.left + contentGeomInfo.left,
-                bodyGeomInfo.top + contentGeomInfo.top
+                bodyGeomInfo.left + contentGeomInfo.left + contentGeomInfo.marginLeft,
+                bodyGeomInfo.top + contentGeomInfo.top + contentGeomInfo.marginTop
             );
             cashbus.util.renderRichText(content, context, contentGeomInfo.width);
             context.restore();
@@ -390,6 +390,8 @@ cashbus.util.getGeomInfo = function (element) {
         left: parseFloat(style.left),
         width: parseFloat(style.width),
         height: parseFloat(style.height),
+        marginTop: parseFloat(style.marginTop),
+        marginLeft: parseFloat(style.marginLeft),
         matrix: matrix,
         style: style
     };
@@ -432,25 +434,24 @@ cashbus.util.renderRichText = function (richTextDiv, context, width) {
             return left;
         return Math.max(1, left - 1);
     }
-    $$('p, li', richTextDiv).each(function (element) {
+    Array.prototype.forEach.call(richTextDiv.querySelectorAll('div > p, div > ul > li'), function (element) {
         var cutWidth;
         var style = getComputedStyle(element);
-        var height = parseFloat(style.lineHeight);
-        function newLine(height) {
+        function newLine() {
             currentLine = [];
-            currentLine.height = height;
             lines.push(currentLine);
             cutWidth = 0;
         }
-        newLine(height);
-        Array.prototype.forEach.call(element.querySelectorAll('span, br'), function (element) {
+        newLine();
+        Array.prototype.forEach.call(element.querySelectorAll('p > span, p > br, li > span, li > br'), function (element) {
             if (element.tagName.toLowerCase() === 'br') {
-                newLine(height);
+                newLine();
                 return; // continue
             }
             var text = element.textContent;
             var style = getComputedStyle(element);
             var font = [style.fontSize, style.fontFamily];
+            var height = parseFloat(style.lineHeight);
             if (style.fontStyle === 'italic') font.unshift('italic');
             if (style.fontWeight === 'bold') font.unshift('bold');
             font = font.join(' ');
@@ -465,12 +466,13 @@ cashbus.util.renderRichText = function (richTextDiv, context, width) {
                 text = left;
                 cutWidth += context.measureText(left).width;
                 currentLine.push({
+                    height: height,
                     font: font,
                     style: style,
                     text: text
                 });
                 text = right;
-                if (needToCut) newLine(height);
+                if (needToCut) newLine();
             } while (needToCut);
         });
     });
@@ -479,7 +481,12 @@ cashbus.util.renderRichText = function (richTextDiv, context, width) {
     context.textBaseline = 'ideographic';
     lines.forEach(function (line) {
         var horizontalOffset = 0;
-        verticalOffset += line.height;
+        verticalOffset += (function () { // Array.reduce is not working properly on naver slide
+            var result = 0;
+            for (var i = 0; i < line.length; ++i)
+                result = Math.max(result, line[i].height);
+            return result;
+        })();
         line.forEach(function (chunk) {
             context.font = chunk.font;
             context.fillStyle = chunk.style;
