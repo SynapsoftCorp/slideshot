@@ -365,7 +365,7 @@ cashbus.render.table = function (element, context, next) {
                 bodyGeomInfo.left + contentGeomInfo.left + contentGeomInfo.marginLeft,
                 bodyGeomInfo.top + contentGeomInfo.top + contentGeomInfo.marginTop
             );
-            cashbus.util.renderRichText(content, context, contentGeomInfo.width - contentGeomInfo.marginRight);
+            cashbus.util.renderRichText(content, context, contentGeomInfo.width);
             context.restore();
         });
         next();
@@ -467,12 +467,35 @@ cashbus.util.renderRichText = function (richTextDiv, context, width) {
     Array.prototype.forEach.call(richTextDiv.querySelectorAll('div > p, div > ul > li'), function (element) {
         var cutWidth;
         var style = getComputedStyle(element);
+        var align = style.textAlign.toLowerCase();
         function newLine() {
             currentLine = [];
-            currentLine.align = style.textAlign;
+            currentLine.align = align;
             currentLine.width = 0;
+            currentLine.height = undefined;
+            currentLine.needToExpand = false; // for justify
             lines.push(currentLine);
             cutWidth = 0;
+        }
+        function push(chunk) {
+            if (align !== 'justify') {
+                currentLine.push(chunk);
+                return;
+            }
+            var sieve = /(\s+)|[^\s]+/g;
+            var match = sieve.exec(chunk.text);
+            while (match !== null) {
+                currentLine.push({
+                    isWhiteSpace: match[1] !== undefined,
+                    width: context.measureText(match[0]).width,
+                    height: chunk.height,
+                    baseline: chunk.baseline,
+                    font: chunk.font,
+                    style: chunk.style,
+                    text: match[0]
+                });
+                match = sieve.exec(chunk.text);
+            }
         }
         newLine();
         Array.prototype.forEach.call(element.querySelectorAll('p > span, p > br, li > span, li > br'), function (element) {
@@ -499,7 +522,7 @@ cashbus.util.renderRichText = function (richTextDiv, context, width) {
                 chunkWidth = context.measureText(text).width;
                 cutWidth += chunkWidth;
                 currentLine.width += chunkWidth;
-                currentLine.push({
+                push({
                     width: chunkWidth,
                     height: chunkHeight,
                     baseline: baseline,
@@ -508,7 +531,10 @@ cashbus.util.renderRichText = function (richTextDiv, context, width) {
                     text: text
                 });
                 text = right;
-                if (needToCut) newLine();
+                if (needToCut) {
+                    currentLine.needToExpand = true;
+                    newLine();
+                }
             } while (needToCut);
         });
     });
@@ -519,6 +545,21 @@ cashbus.util.renderRichText = function (richTextDiv, context, width) {
                 result = Math.max(result, line[i].height);
             return result;
         })();
+        // expand width
+        var lack, totalWhite, whiteChunks, ratio;
+        if (line.align === 'justify' && line.needToExpand) {
+            lack = Math.abs(width - line.width);
+            totalWhite = 0;
+            whiteChunks = line.filter(function (chunk) { return chunk.isWhiteSpace; });
+            whiteChunks.forEach(function (chunk) {
+                totalWhite += chunk.width;
+            });
+            if (totalWhite === 0) return;
+            ratio = (totalWhite + lack) / totalWhite;
+            whiteChunks.forEach(function (chunk) {
+                chunk.width *= ratio;
+            });
+        }
     });
     // render
     var verticalOffset = 0;
