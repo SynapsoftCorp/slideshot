@@ -300,8 +300,8 @@ cashbus.render.rect = function (element, context, next) {
         var areaStyle = getComputedStyle(textArea);
         var bodyStyle = getComputedStyle($$('.textBody', textArea)[0]);
         context.translate(
-            parseFloat(areaStyle.left) + parseFloat(bodyStyle.marginLeft),
-            parseFloat(areaStyle.top) + parseFloat(bodyStyle.marginTop)
+            parseFloat(areaStyle.left) + parseFloat(bodyStyle.marginLeft) + (parseFloat(bodyStyle.left) || 0),
+            parseFloat(areaStyle.top) + parseFloat(bodyStyle.marginTop) + (parseFloat(bodyStyle.top) || 0)
         );
         cashbus.util.renderRichText(content, context);
         next();
