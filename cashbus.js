@@ -299,12 +299,11 @@ cashbus.render.rect = function (element, context, next) {
         var content = $$('.content', textArea)[0];
         var areaStyle = getComputedStyle(textArea);
         var bodyStyle = getComputedStyle($$('.textBody', textArea)[0]);
-        var contentStyle = getComputedStyle(content);
         context.translate(
             parseFloat(areaStyle.left) + parseFloat(bodyStyle.marginLeft),
             parseFloat(areaStyle.top) + parseFloat(bodyStyle.marginTop)
         );
-        cashbus.util.renderRichText(content, context, parseFloat(contentStyle.width));
+        cashbus.util.renderRichText(content, context);
         next();
     });
 };
@@ -365,7 +364,7 @@ cashbus.render.table = function (element, context, next) {
                 bodyGeomInfo.left + contentGeomInfo.left + contentGeomInfo.marginLeft,
                 bodyGeomInfo.top + contentGeomInfo.top + contentGeomInfo.marginTop
             );
-            cashbus.util.renderRichText(content, context, contentGeomInfo.width);
+            cashbus.util.renderRichText(content, context);
             context.restore();
         });
         next();
@@ -398,34 +397,6 @@ cashbus.util.getGeomInfo = function (element) {
         style: style
     };
 };
-cashbus.util.getBaseline = function (fontSize, fontFamily) { // refer html2canvas
-    var key = fontSize + '@' + fontFamily;
-    var memo = cashbus.util.getBaseline.cache[key];
-    if (memo !== undefined) return memo;
-    var span = document.createElement('span');
-    span.style.fontSize = fontSize;
-    span.style.fontFamily = fontFamily;
-    span.style.margin = span.style.padding = 0;
-    span.appendChild(document.createTextNode('Hello, World!'));
-    var img = new Image();
-    img.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
-    img.width = img.height = 1;
-    img.style.margin = img.style.padding = 0;
-    img.style.verticalAlign = 'baseline';
-    var div = document.createElement('div');
-    div.style.visibility = 'hidden';
-    div.style.fontSize = fontSize;
-    div.style.fontFamily = fontFamily;
-    div.style.margin = div.style.padding = 0;
-    div.appendChild(span);
-    div.appendChild(img);
-    document.body.appendChild(div);
-    var baseline = (img.offsetTop - span.offsetTop) + 1;
-    cashbus.util.getBaseline.cache[key] = baseline;
-    document.body.removeChild(div);
-    return baseline;
-};
-cashbus.util.getBaseline.cache = {};
 cashbus.util.transformContextByGeomInfo = function (context, geomInfo) {
     var halfWidth = geomInfo.width * 0.5;
     var halfHeight = geomInfo.height * 0.5;
@@ -437,165 +408,66 @@ cashbus.util.transformContextByElement = function (context, element) {
     var geomInfo = cashbus.util.getGeomInfo(element);
     cashbus.util.transformContextByGeomInfo(context, geomInfo);
 };
-cashbus.util.renderRichText = function (richTextDiv, context, width) {
-    // calc
-    width = Math.abs(width);
-    var currentLine, lines = [];
-    function cut(font, style, text, width) {
-        context.font = font;
-        context.fillStyle = style;
-        if (!text) return 0;
-        if (!width) return text.length;
-        if (context.measureText(text).width <= width) return text.length;
-        var left = 0;
-        var right = text.length;
-        var center, sliced, textMetrics;
-        while (left < right) {
-            center = (left + right) * 0.5;
-            sliced = text.slice(0, center | 0);
-            textMetrics = context.measureText(sliced);
-            if (textMetrics.width == width) return sliced.length;
-            if (textMetrics.width < width)
-                left = Math.ceil(center);
-            else
-                right = Math.floor(center);
-        }
-        if (context.measureText(text.slice(0, left)).width < width)
-            return left;
-        return Math.max(1, left - 1);
-    }
-    Array.prototype.forEach.call(richTextDiv.querySelectorAll('div > p, div > ul > li'), function (element) {
-        var cutWidth;
+cashbus.util.renderRichText = function (richTextDiv, context) {
+    var calcDiv = document.createElement('div');
+    calcDiv.style.visibility = 'hidden';
+    calcDiv.style.position = 'absolute';
+    calcDiv.style.top = calcDiv.style.left = 0;
+    calcDiv.style.width = getComputedStyle(richTextDiv).width;
+    calcDiv.innerHTML = Array.prototype.map.call(richTextDiv.querySelectorAll('div > p, div > ul > li'), function (element) {
         var style = getComputedStyle(element);
-        var align = style.textAlign.toLowerCase();
-        function newLine() {
-            currentLine = [];
-            currentLine.align = align;
-            currentLine.width = 0;
-            currentLine.height = undefined;
-            currentLine.needToExpand = false; // for justify
-            lines.push(currentLine);
-            cutWidth = 0;
-        }
-        function push(chunk) {
-            if (align !== 'justify') {
-                currentLine.push(chunk);
-                return;
-            }
-            var sieve = /(\s+)|[^\s]+/g;
-            var match = sieve.exec(chunk.text);
-            while (match !== null) {
-                currentLine.push({
-                    isWhiteSpace: match[1] !== undefined,
-                    width: context.measureText(match[0]).width,
-                    height: chunk.height,
-                    baseline: chunk.baseline,
-                    font: chunk.font,
-                    strikethrough: chunk.strikethrough,
-                    underline: chunk.underline,
-                    style: chunk.style,
-                    text: match[0]
-                });
-                match = sieve.exec(chunk.text);
-            }
-        }
-        newLine();
-        Array.prototype.forEach.call(element.querySelectorAll('p > span, p > br, li > span, li > br'), function (element) {
-            if (element.tagName.toLowerCase() === 'br') {
-                return; // continue
-            }
-            var text = element.textContent;
+        var p = '<div style="' + [
+            'height: ' + style.height,
+            'line-height: ' + style.lineHeight,
+            'margin-left: ' + style.marginLeft,
+            'text-align: ' + style.textAlign
+        ].join(';') + '">';
+        p += Array.prototype.map.call(element.querySelectorAll('p > span, li > span, p > br, li > br'), function (element) {
+            if (element.tagName === 'BR') return '<br>';
             var style = getComputedStyle(element);
+            return '<span style="' + [
+                'line-height: ' + style.lineHeight,
+                'font-family: ' + style.fontFamily,
+                'font-size: ' + style.fontSize,
+                'font-weight: ' + style.fontWeight,
+                'font-style: ' + style.fontStyle,
+                'text-decoration: ' + style.textDecoration,
+                'color: ' + style.color
+            ].join(';') + '">' + element.textContent + '</span>';
+        }).join('');
+        return p + ' </div>';
+    }).join('');
+    document.body.appendChild(calcDiv);
+    context.textBaseline = 'ideographic';
+    Array.prototype.forEach.call(calcDiv.children, function (paragraph) {
+        Array.prototype.forEach.call(paragraph.children, function (run) {
+            var style = run.style;
             var underline = style.textDecoration.indexOf('underline') > -1;
             var strikethrough = style.textDecoration.indexOf('line-through') > -1;
             var font = [style.fontSize, style.fontFamily];
-            var baseline = cashbus.util.getBaseline(style.fontSize, style.fontFamily);
-            var chunkWidth, chunkHeight = parseFloat(style.lineHeight);
             if (style.fontStyle === 'italic') font.unshift('italic');
             if (style.fontWeight === 'bold') font.unshift('bold');
-            font = font.join(' ');
-            style = style.color;
-            var cutOffset, needToCut;
-            var left, right;
-            do {
-                cutOffset = cut(font, style, text, Math.abs(width - cutWidth));
-                needToCut = cutOffset != text.length;
-                left = text.substr(0, cutOffset);
-                right = text.substr(cutOffset);
-                text = left;
-                chunkWidth = context.measureText(text).width;
-                cutWidth += chunkWidth;
-                currentLine.width += chunkWidth;
-                push({
-                    width: chunkWidth,
-                    height: chunkHeight,
-                    baseline: baseline,
-                    font: font,
-                    strikethrough: strikethrough,
-                    underline: underline,
-                    style: style,
-                    text: text
-                });
-                text = right;
-                if (needToCut) {
-                    currentLine.needToExpand = true;
-                    newLine();
+            context.font = font.join(' ');
+            context.fillStyle = style.color;
+            Array.prototype.forEach.call(run.childNodes, function (node) {
+                var text = node.textContent;
+                var range = document.createRange();
+                var rect, thickness;
+                for (var i = 0; i < text.length; ++i) {
+                    range.setStart(node, i);
+                    range.setEnd(node, i + 1);
+                    rect = range.getBoundingClientRect();
+                    context.fillText(text.charAt(i), rect.left, rect.bottom);
+                    thickness = rect.height * 0.035;
+                    if (underline)
+                        context.fillRect(rect.left, rect.bottom, rect.width, thickness);
+                    if (strikethrough)
+                        context.fillRect(rect.left, rect.top + rect.height * 0.5, rect.width, thickness);
                 }
-            } while (needToCut);
+            });
         });
     });
-    lines.forEach(function (line) {
-        line.height = (function () { // Array.reduce is not working properly on naver slide
-            var result = 0;
-            for (var i = 0; i < line.length; ++i)
-                result = Math.max(result, line[i].height);
-            return result;
-        })();
-        // expand width
-        var lack, totalWhite, whiteChunks, ratio;
-        if (line.align === 'justify' && line.needToExpand) {
-            lack = Math.abs(width - line.width);
-            totalWhite = 0;
-            whiteChunks = line.filter(function (chunk) { return chunk.isWhiteSpace; });
-            whiteChunks.forEach(function (chunk) {
-                totalWhite += chunk.width;
-            });
-            if (totalWhite === 0) return;
-            ratio = (totalWhite + lack) / totalWhite;
-            whiteChunks.forEach(function (chunk) {
-                chunk.width *= ratio;
-            });
-        }
-    });
-    // render
-    var verticalOffset = 0;
-    context.textBaseline = 'ideographic';
-    lines.forEach(function (line) {
-        var horizontalOffset;
-        switch (line.align) {
-        case 'left': case 'justify':
-            horizontalOffset = 0;
-            break;
-        case 'center':
-            horizontalOffset = width * 0.5 - line.width * 0.5;
-            break;
-        case 'right':
-            horizontalOffset = width - line.width;
-            break;
-        }
-        verticalOffset += line.height;
-        line.forEach(function (chunk) {
-            context.font = chunk.font;
-            context.fillStyle = chunk.style;
-            context.fillText(chunk.text, horizontalOffset, verticalOffset);
-            var thickness = chunk.height * 0.03;
-            if (chunk.underline)
-                context.fillRect(horizontalOffset, verticalOffset, chunk.width, thickness);
-            if (chunk.strikethrough)
-                context.fillRect(horizontalOffset, verticalOffset - chunk.height * 0.5, chunk.width, thickness);
-            horizontalOffset += chunk.width;
-        });
-    });
+    document.body.removeChild(calcDiv);
 };
 cashbus.util.renderSVGPath = function (context, geomInfo, path, defs, callback) {
     var fillOpacity = path.getAttribute('fill-opacity');
