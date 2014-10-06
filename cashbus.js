@@ -756,7 +756,7 @@ cashbus.util.toCSSColorString = function (rgba) {
 };
 cashbus.util.applyOpacityToColorString = function (cssColorString, opacity) {
     color = cashbus.util.parseColor(cssColorString);
-    color.a = opacity;
+    color.a = isNaN(opacity)? 1 : opacity;
     return cashbus.util.toCSSColorString(color);
 };
 cashbus.debug = true;
