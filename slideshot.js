@@ -765,9 +765,11 @@ slideshot({
         console.log(type + ': ' + current + ' / ' + total);
     },
     complete: function (canvas) {
-        console.log('render completed');
+        var dataURL = canvas.toDataURL();
         var img = new Image();
-        img.src = canvas.toDataURL();
+        img.src = dataURL;
+        console.log('render completed');
+        console.log('data url: ', dataURL);
         img.style.position = 'absolute';
         img.style.top = '0';
         img.style.left = '0';
